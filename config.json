@@ -1,0 +1,16 @@
+{
+    "sam_model": {
+        "name": "vit_l",
+        "checkpoint_path": "./sam_vit_l_0b3195.pth"
+    },
+    "label_info": {
+        "0": {"name": "person", "color": [0, 255, 0]}
+    },
+    "raw_data_path": "D:/labelling/MOT_Annot-main/dataset/train/ID0000/S01_cam01_cycle02/rgb",
+    "output_path": {
+        "root": "dataset",
+        "img_subpath": "imgs",
+        "label_subpath": "labels"
+    },
+    "max_image_dimension": 1024
+}
