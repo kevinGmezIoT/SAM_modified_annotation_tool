@@ -261,17 +261,53 @@ class ImageProcessor:
         # Ensure mask is boolean
         mask = mask.astype(bool)
         
-        # Store the current mask
-        self.current_mask = mask
-        print(f"Máscara almacenada con {np.count_nonzero(mask)} píxeles True")
+        # Store the current mask (resized if needed)
+        if mask.shape != self.image.shape[:2]:
+            # Create a new mask with the correct dimensions
+            resized_mask = np.zeros(self.image.shape[:2], dtype=bool)
+            # Calculate the region to place the resized mask (centered)
+            h, w = mask.shape
+            target_h, target_w = self.image.shape[:2]
+            
+            # Calculate padding or cropping
+            pad_top = max(0, (target_h - h) // 2)
+            pad_bottom = max(0, target_h - h - pad_top)
+            pad_left = max(0, (target_w - w) // 2)
+            pad_right = max(0, target_w - w - pad_left)
+            
+            if h <= target_h and w <= target_w:
+                # If mask is smaller, pad it
+                resized_mask[pad_top:pad_top+h, pad_left:pad_left+w] = mask
+            else:
+                # If mask is larger, crop it
+                crop_h = min(h, target_h)
+                crop_w = min(w, target_w)
+                resized_mask = mask[:crop_h, :crop_w]
+                # If we cropped, we need to ensure the mask has the right size
+                if resized_mask.shape != self.image.shape[:2]:
+                    resized_mask = cv2.resize(resized_mask.astype(np.uint8), 
+                                            (target_w, target_h),
+                                            interpolation=cv2.INTER_NEAREST).astype(bool)
+            
+            self.current_mask = resized_mask
+            print(f"Máscara redimensionada de {mask.shape} a {resized_mask.shape}")
+        else:
+            self.current_mask = mask
+        
+        print(f"Máscara almacenada con {np.count_nonzero(self.current_mask)} píxeles True")
         
         # Update the mask for the current class
         if class_id is not None and isinstance(self.mask, list):
+            # Ensure the mask for this class has the correct dimensions
+            if self.mask[class_id].shape != self.image.shape[:2]:
+                self.mask[class_id] = np.zeros(self.image.shape[:2], dtype=np.uint8)
+            
             # Only update where the mask is True, keep existing values elsewhere
-            self.mask[class_id] = np.where(mask, class_id, self.mask[class_id])
+            self.mask[class_id] = np.where(self.current_mask, class_id, self.mask[class_id])
         
         # Create visualization with the class color
-        masked_img = np.where(mask[..., None], color, self.image).astype(np.uint8)
+        masked_img = np.zeros_like(self.image)
+        masked_img[self.current_mask] = color
         self.show_image = cv2.addWeighted(self.image, 0.6, masked_img, 0.4, 0)
         print(f"Máscara actualizada para clase {class_id}")
 
@@ -302,10 +338,37 @@ class ImageProcessor:
             
             # Update the mask for the selected class
             if len(masks) > 0:
-                self.show_mask(masks[0], self.selected_class)
+                # Ensure the mask has the same dimensions as the original image
+                if masks[0].shape != self.image.shape[:2]:
+                    # Get the current transform data from the predictor
+                    input_size = self.predictor.input_size
+                    original_size = self.predictor.original_size
+                    
+                    # Transform the mask to the original image size
+                    from segment_anything.modeling import Sam
+                    from torch.nn import functional as F
+                    
+                    # Convert mask to tensor and add batch and channel dimensions
+                    mask_torch = torch.as_tensor(masks[0], device=self.predictor.device)
+                    mask_torch = mask_torch.unsqueeze(0).unsqueeze(0).float()
+                    
+                    # Resize to the original image size
+                    resized_mask = F.interpolate(
+                        mask_torch,
+                        size=(original_size[0], original_size[1]),
+                        mode="bilinear",
+                        align_corners=False,
+                    )
+                    # Convert back to numpy and boolean
+                    resized_mask = resized_mask.squeeze().cpu().numpy() > 0.5
+                    self.show_mask(resized_mask, self.selected_class)
+                else:
+                    self.show_mask(masks[0], self.selected_class)
                 
         except Exception as e:
             print(f"Error during prediction: {e}")
+            import traceback
+            traceback.print_exc()
 
     def enter_class_id(self):
         class_id = input("Enter class number ID: ")

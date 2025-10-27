@@ -6,9 +6,9 @@
     "label_info": {
         "0": {"name": "person", "color": [0, 255, 0]}
     },
-    "raw_data_path": "D:/labelling/MOT_Annot-main/dataset/train/ID0001/S01_cam01_cycle02/rgb",
+    "raw_data_path": "D:/labelling/MOT_Annot-main/dataset/train/ID0000/S01_cam01_cycle01/rgb",
     "output_path": {
-        "root": "D:/labelling/MOT_Annot-main/dataset/train/ID0001/S01_cam01_cycle02",
+        "root": "D:/labelling/MOT_Annot-main/dataset/train/ID0000/S01_cam01_cycle01",
         "img_subpath": "imgs",
         "label_subpath": "sil"
     },
